@@ -4,11 +4,18 @@ import 'package:pro_services/models/profesional.dart';
 import 'package:pro_services/models/tipo_profesion.dart';
 import 'package:pro_services/services/profesional_service.dart';
 import 'package:pro_services/screens/client/perfil_profesional_screen.dart';
+import 'package:pro_services/screens/client/crear_solicitud_screen.dart';
+import 'package:pro_services/services/favorito_service.dart';
 
 class ProfesionalesScreen extends StatefulWidget {
   final TipoProfesion categoria;
+  final String token;
 
-  const ProfesionalesScreen({super.key, required this.categoria});
+  const ProfesionalesScreen({
+    super.key,
+    required this.categoria,
+    required this.token,
+  });
 
   @override
   State<ProfesionalesScreen> createState() => _ProfesionalesScreenState();
@@ -21,6 +28,13 @@ class _ProfesionalesScreenState extends State<ProfesionalesScreen> {
   String _query = '';
   bool _isSearching = false;
 
+  // Filtros
+  double _minCalificacion = 0.0;
+  double _maxPrecio = 9999.0;
+  bool _soloDisponibles = false;
+
+  Set<int> _favoritosIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +42,31 @@ class _ProfesionalesScreenState extends State<ProfesionalesScreen> {
     _searchController.addListener(() {
       setState(() => _query = _searchController.text.toLowerCase().trim());
     });
+    _cargarFavoritos();
+  }
+
+  Future<void> _cargarFavoritos() async {
+    try {
+      final ids = await FavoritoService.getIdsFavoritos(widget.token);
+      if (mounted) setState(() => _favoritosIds = ids);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFavorito(int idProfesional) async {
+    try {
+      if (_favoritosIds.contains(idProfesional)) {
+        await FavoritoService.quitar(widget.token, idProfesional);
+        if (mounted) setState(() => _favoritosIds.remove(idProfesional));
+      } else {
+        await FavoritoService.agregar(widget.token, idProfesional);
+        if (mounted) setState(() => _favoritosIds.add(idProfesional));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   @override
@@ -49,10 +88,161 @@ class _ProfesionalesScreenState extends State<ProfesionalesScreen> {
   }
 
   List<Profesional> _filtrar(List<Profesional> lista) {
-    if (_query.isEmpty) return lista;
-    return lista.where((p) =>
-        p.nombre.toLowerCase().contains(_query) ||
-        p.especialidad.toLowerCase().contains(_query)).toList();
+    return lista.where((p) {
+      if (_query.isNotEmpty &&
+          !p.nombre.toLowerCase().contains(_query) &&
+          !p.especialidad.toLowerCase().contains(_query)) return false;
+      if (p.calificacion < _minCalificacion) return false;
+      if (p.precioPorHora > _maxPrecio) return false;
+      if (_soloDisponibles && !p.disponibleAhora) return false;
+      return true;
+    }).toList();
+  }
+
+  void _mostrarFiltros() {
+    // Valores temporales para el sheet
+    double tmpMinCal = _minCalificacion;
+    double tmpMaxPrecio = _maxPrecio;
+    bool tmpSoloDisp = _soloDisponibles;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Filtros',
+                    style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: textPrimary),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Calificación mínima
+                  Row(
+                    children: [
+                      Icon(Icons.star_rounded,
+                          size: 16, color: const Color(0xFFFBBF24)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Calificación mínima: ${tmpMinCal.toStringAsFixed(1)}★',
+                        style: TextStyle(fontSize: 13, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: tmpMinCal,
+                    min: 0,
+                    max: 5,
+                    divisions: 10,
+                    activeColor: const Color(0xFF6366F1),
+                    label: '${tmpMinCal.toStringAsFixed(1)}★',
+                    onChanged: (v) =>
+                        setSheetState(() => tmpMinCal = v),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Precio máximo
+                  Row(
+                    children: [
+                      Icon(Icons.attach_money_rounded,
+                          size: 16, color: const Color(0xFF10B981)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Precio máx/hora: \$${tmpMaxPrecio >= 9999 ? "Sin límite" : tmpMaxPrecio.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 13, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: tmpMaxPrecio.clamp(0, 500),
+                    min: 0,
+                    max: 500,
+                    divisions: 50,
+                    activeColor: const Color(0xFF10B981),
+                    label: tmpMaxPrecio >= 500
+                        ? 'Sin límite'
+                        : '\$${tmpMaxPrecio.toStringAsFixed(0)}',
+                    onChanged: (v) => setSheetState(
+                        () => tmpMaxPrecio = v >= 500 ? 9999.0 : v),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Solo disponibles
+                  Row(
+                    children: [
+                      Switch(
+                        value: tmpSoloDisp,
+                        activeColor: const Color(0xFF6366F1),
+                        onChanged: (v) =>
+                            setSheetState(() => tmpSoloDisp = v),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('Solo disponibles ahora',
+                          style:
+                              TextStyle(fontSize: 13, color: textPrimary)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _minCalificacion = tmpMinCal;
+                          _maxPrecio = tmpMaxPrecio;
+                          _soloDisponibles = tmpSoloDisp;
+                        });
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Aplicar',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Color get _catColor {
@@ -123,12 +313,22 @@ class _ProfesionalesScreenState extends State<ProfesionalesScreen> {
                 ],
               ),
         actions: [
-          if (!_isSearching)
+          if (!_isSearching) ...[
+            IconButton(
+              icon: Icon(Icons.tune_rounded,
+                  color: isDark
+                      ? Colors.grey.shade300
+                      : const Color(0xFF0F172A)),
+              onPressed: _mostrarFiltros,
+            ),
             IconButton(
               icon: Icon(Icons.search_rounded,
-                  color: isDark ? Colors.grey.shade300 : const Color(0xFF0F172A)),
+                  color: isDark
+                      ? Colors.grey.shade300
+                      : const Color(0xFF0F172A)),
               onPressed: _abrirBusqueda,
             ),
+          ],
           IconButton(
             icon: Icon(
               isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
@@ -206,7 +406,8 @@ class _ProfesionalesScreenState extends State<ProfesionalesScreen> {
                         ),
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        padding:
+                            const EdgeInsets.fromLTRB(16, 8, 16, 16),
                         itemCount: profesionales.length,
                         separatorBuilder: (_, _) =>
                             const SizedBox(height: 12),
@@ -216,6 +417,9 @@ class _ProfesionalesScreenState extends State<ProfesionalesScreen> {
                             catColor: catColor,
                             isDark: isDark,
                             cardBg: cardBg,
+                            token: widget.token,
+                            esFavorito: _favoritosIds.contains(profesionales[index].id),
+                            onToggleFavorito: () => _toggleFavorito(profesionales[index].id),
                           );
                         },
                       ),
@@ -233,12 +437,18 @@ class _ProfesionalCard extends StatelessWidget {
   final Color catColor;
   final bool isDark;
   final Color cardBg;
+  final String token;
+  final bool esFavorito;
+  final VoidCallback onToggleFavorito;
 
   const _ProfesionalCard({
     required this.profesional,
     required this.catColor,
     required this.isDark,
     required this.cardBg,
+    required this.token,
+    required this.esFavorito,
+    required this.onToggleFavorito,
   });
 
   @override
@@ -273,7 +483,10 @@ class _ProfesionalCard extends StatelessWidget {
                 backgroundColor: catColor.withValues(alpha: 0.15),
                 child: Text(
                   profesional.nombre[0],
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: catColor),
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: catColor),
                 ),
               ),
               const SizedBox(width: 12),
@@ -282,26 +495,48 @@ class _ProfesionalCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(profesional.nombre,
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textPrimary)),
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: textPrimary)),
                     const SizedBox(height: 2),
                     Text(profesional.especialidad,
-                        style: TextStyle(fontSize: 12, color: catColor, fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: catColor,
+                            fontWeight: FontWeight.w500)),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.star_rounded, size: 14, color: const Color(0xFFFBBF24)),
+                        Icon(Icons.star_rounded,
+                            size: 14, color: const Color(0xFFFBBF24)),
                         const SizedBox(width: 3),
                         Text(profesional.calificacion.toStringAsFixed(1),
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary)),
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: textPrimary)),
                         const SizedBox(width: 10),
-                        Icon(Icons.work_outline_rounded, size: 13, color: textSecondary),
+                        Icon(Icons.work_outline_rounded,
+                            size: 13, color: textSecondary),
                         const SizedBox(width: 3),
                         Text('${profesional.trabajosRealizados} trabajos',
-                            style: TextStyle(fontSize: 11, color: textSecondary)),
+                            style: TextStyle(
+                                fontSize: 11, color: textSecondary)),
                       ],
                     ),
                   ],
                 ),
+              ),
+              IconButton(
+                icon: Icon(
+                  esFavorito ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                  color: esFavorito ? Colors.red : textSecondary,
+                  size: 22,
+                ),
+                onPressed: onToggleFavorito,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ],
           ),
@@ -309,33 +544,50 @@ class _ProfesionalCard extends StatelessWidget {
           Row(children: [
             Icon(Icons.location_on_rounded, size: 14, color: catColor),
             const SizedBox(width: 4),
-            Text(profesional.ubicacion, style: TextStyle(fontSize: 12, color: textSecondary)),
+            Text(profesional.ubicacion,
+                style: TextStyle(fontSize: 12, color: textSecondary)),
           ]),
           const SizedBox(height: 4),
           Row(children: [
             Icon(Icons.attach_money_rounded, size: 14, color: catColor),
             const SizedBox(width: 4),
             Text('\$${profesional.precioPorHora.toStringAsFixed(0)}/hora',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary)),
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary)),
           ]),
           const SizedBox(height: 4),
           Row(children: [
             Icon(Icons.schedule_rounded, size: 14, color: catColor),
             const SizedBox(width: 4),
-            Text(profesional.horarioDisponibilidad, style: TextStyle(fontSize: 12, color: textSecondary)),
+            Text(profesional.horarioDisponibilidad,
+                style: TextStyle(fontSize: 12, color: textSecondary)),
           ]),
           const SizedBox(height: 10),
           Text('Habilidades',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: textPrimary)),
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: textPrimary)),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: profesional.habilidades.map((h) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(20)),
-              child: Text(h, style: TextStyle(fontSize: 11, color: catColor, fontWeight: FontWeight.w500)),
-            )).toList(),
+            children: profesional.habilidades
+                .map((h) => Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                          color: chipBg,
+                          borderRadius: BorderRadius.circular(20)),
+                      child: Text(h,
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: catColor,
+                              fontWeight: FontWeight.w500)),
+                    ))
+                .toList(),
           ),
           const SizedBox(height: 12),
           Row(
@@ -347,7 +599,8 @@ class _ProfesionalCard extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: btnColor,
                       side: BorderSide(color: btnColor),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () => Navigator.push(
                       context,
@@ -355,11 +608,13 @@ class _ProfesionalCard extends StatelessWidget {
                         builder: (_) => PerfilProfesionalScreen(
                           profesional: profesional,
                           catColor: catColor,
+                          token: token,
                         ),
                       ),
                     ),
                     child: const Text('Ver perfil',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
                 ),
               ),
@@ -372,11 +627,31 @@ class _ProfesionalCard extends StatelessWidget {
                       backgroundColor: btnColor,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    onPressed: () {},
+                    onPressed: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CrearSolicitudScreen(
+                            token: token,
+                            profesional: profesional,
+                          ),
+                        ),
+                      );
+                      if (result == true && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('¡Solicitud enviada exitosamente!'),
+                            backgroundColor: Color(0xFF10B981),
+                          ),
+                        );
+                      }
+                    },
                     child: const Text('Contratar',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
                   ),
                 ),
               ),

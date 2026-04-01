@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pro_services/screens/auth/login_screen.dart';
+import 'package:pro_services/screens/auth/onboarding_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,6 +29,11 @@ class MyAppState extends State<MyApp> {
 
   bool get isDark => _themeMode == ThemeMode.dark;
 
+  static Future<bool> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('onboarding_done') ?? false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -44,7 +51,17 @@ class MyAppState extends State<MyApp> {
         ),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: FutureBuilder<bool>(
+        future: _checkOnboarding(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return snapshot.data! ? const LoginScreen() : const OnboardingScreen();
+        },
+      ),
     );
   }
 }

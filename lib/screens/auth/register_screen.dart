@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pro_services/main.dart';
+import 'package:pro_services/screens/client/home_client_screen.dart';
+import 'package:pro_services/screens/professional/home_professional_screen.dart';
+import 'package:pro_services/services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   final int initialRole;
@@ -27,6 +30,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onRegister() async {
+    try {
+      final result = await AuthService.register(
+        nombre: _nameController.text.trim(),
+        correo: _emailController.text.trim(),
+        contrasena: _passwordController.text,
+        rol: _selectedRole == 0 ? 'cliente' : 'profesional',
+      );
+      final destination = result.rol == 'cliente'
+          ? HomeClientScreen(token: result.token, nombre: result.nombre)
+          : HomeProfessionalScreen(token: result.token, nombre: result.nombre);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => destination),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al crear cuenta: $e')),
+      );
+    }
   }
 
   @override
@@ -141,7 +168,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: _onRegister,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isDark ? const Color(0xFF475569) : const Color(0xFF111827),
                           foregroundColor: Colors.white,

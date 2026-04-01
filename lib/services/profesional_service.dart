@@ -1,185 +1,23 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:pro_services/models/profesional.dart';
 
 class ProfesionalService {
+  static const _base = 'http://localhost:5099';
+
   static Future<List<Profesional>> getPorCategoria(int tipoProfesionId) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+    final uri = Uri.parse('$_base/profesionales').replace(
+      queryParameters: {'categoria_id': tipoProfesionId.toString()},
+    );
+    final res = await http.get(uri);
+    _checkStatus(res);
+    final list = jsonDecode(res.body) as List;
+    return list.map((e) => Profesional.fromJson(e as Map<String, dynamic>)).toList();
+  }
 
-    final Map<int, List<Map<String, dynamic>>> mock = {
-      1: [
-        {
-          'id': 1,
-          'nombre': 'Andrés Molina',
-          'especialidad': 'Electricista certificado',
-          'calificacion': 4.9,
-          'trabajosRealizados': 134,
-          'ubicacion': 'Bogotá, Colombia',
-          'precioPorHora': 45.0,
-          'horarioDisponibilidad': 'Lun–Vie 8:00–18:00',
-          'habilidades': ['Instalaciones', 'Tableros eléctricos', 'Reparación de cortos', 'Iluminación LED'],
-          'disponibleAhora': true,
-          'telefono': '+57 310 234 5678',
-          'correo': 'andres.molina@email.com',
-          'sitioWeb': 'www.andreselectrico.com',
-          'sobreMi': 'Electricista certificado con más de 10 años de experiencia en instalaciones residenciales y comerciales. Me especializo en soluciones eficientes y seguras para hogares y empresas.',
-        },
-        {
-          'id': 2,
-          'nombre': 'Luis Herrera',
-          'especialidad': 'Técnico eléctrico',
-          'calificacion': 4.7,
-          'trabajosRealizados': 89,
-          'ubicacion': 'Medellín, Colombia',
-          'precioPorHora': 35.0,
-          'horarioDisponibilidad': 'Lun–Sáb 7:00–17:00',
-          'habilidades': ['Puntos de luz', 'Tomas corriente', 'Cableado estructurado'],
-          'disponibleAhora': false,
-          'telefono': '+57 315 987 6543',
-          'correo': 'luis.herrera@email.com',
-          'sitioWeb': null,
-          'sobreMi': 'Técnico eléctrico con 6 años de experiencia. Trabajo rápido y con garantía en todos mis servicios.',
-        },
-        {
-          'id': 3,
-          'nombre': 'Marco Ríos',
-          'especialidad': 'Electricista industrial',
-          'calificacion': 4.8,
-          'trabajosRealizados': 210,
-          'ubicacion': 'Cali, Colombia',
-          'precioPorHora': 60.0,
-          'horarioDisponibilidad': 'Lun–Dom 6:00–20:00',
-          'habilidades': ['Mantenimiento preventivo', 'PLC', 'Motores eléctricos', 'Alta tensión'],
-          'disponibleAhora': true,
-          'telefono': '+57 320 111 2233',
-          'correo': 'marco.rios@email.com',
-          'sitioWeb': 'www.marcoindustrial.co',
-          'sobreMi': 'Electricista industrial con experiencia en plantas de manufactura, mantenimiento preventivo y correctivo de equipos de alta tensión.',
-        },
-      ],
-      2: [
-        {
-          'id': 4,
-          'nombre': 'Carlos Vega',
-          'especialidad': 'Plomero general',
-          'calificacion': 4.6,
-          'trabajosRealizados': 75,
-          'ubicacion': 'Bogotá, Colombia',
-          'precioPorHora': 30.0,
-          'horarioDisponibilidad': 'Lun–Sáb 8:00–17:00',
-          'habilidades': ['Filtraciones', 'Sanitarios', 'Tuberías PVC', 'Griferías'],
-          'disponibleAhora': false,
-          'telefono': '+57 301 445 6677',
-          'correo': 'carlos.vega@email.com',
-          'sitioWeb': null,
-          'sobreMi': 'Plomero con 8 años de experiencia. Detecto y soluciono filtraciones, instalo tuberías y sanitarios con materiales de calidad.',
-        },
-        {
-          'id': 5,
-          'nombre': 'Raúl Fuentes',
-          'especialidad': 'Técnico en sistemas de agua',
-          'calificacion': 4.9,
-          'trabajosRealizados': 102,
-          'ubicacion': 'Barranquilla, Colombia',
-          'precioPorHora': 50.0,
-          'horarioDisponibilidad': 'Lun–Dom 7:00–19:00',
-          'habilidades': ['Bombas de presión', 'Cisternas', 'Agua caliente', 'Red hidráulica'],
-          'disponibleAhora': true,
-          'telefono': '+57 318 778 9900',
-          'correo': 'raul.fuentes@email.com',
-          'sitioWeb': 'www.aguasraulfuentes.com',
-          'sobreMi': 'Especialista en sistemas hidráulicos, bombas de presión y redes de agua fría y caliente para edificios y conjuntos residenciales.',
-        },
-      ],
-      3: [
-        {
-          'id': 6,
-          'nombre': 'Jorge Salinas',
-          'especialidad': 'Carpintero de muebles',
-          'calificacion': 4.8,
-          'trabajosRealizados': 58,
-          'ubicacion': 'Bogotá, Colombia',
-          'precioPorHora': 40.0,
-          'horarioDisponibilidad': 'Lun–Vie 8:00–17:00',
-          'habilidades': ['Madera maciza', 'MDF', 'Closets', 'Muebles a medida'],
-          'disponibleAhora': true,
-          'telefono': '+57 312 334 5566',
-          'correo': 'jorge.salinas@email.com',
-          'sitioWeb': null,
-          'sobreMi': 'Carpintero artesanal con 12 años creando muebles únicos. Trabajo con madera maciza, MDF y melanina para closets, cocinas y muebles a medida.',
-        },
-      ],
-      4: [
-        {
-          'id': 7,
-          'nombre': 'Pedro Alvarado',
-          'especialidad': 'Pintor de interiores',
-          'calificacion': 4.7,
-          'trabajosRealizados': 145,
-          'ubicacion': 'Medellín, Colombia',
-          'precioPorHora': 25.0,
-          'horarioDisponibilidad': 'Lun–Sáb 7:00–18:00',
-          'habilidades': ['Acabados lisos', 'Texturizados', 'Estuco', 'Pintura decorativa'],
-          'disponibleAhora': false,
-          'telefono': '+57 300 123 4567',
-          'correo': 'pedro.alvarado@email.com',
-          'sitioWeb': null,
-          'sobreMi': 'Pintor profesional especializado en interiores con acabados perfectos. Uso pinturas de alta calidad y técnicas modernas de decoración.',
-        },
-        {
-          'id': 8,
-          'nombre': 'Ernesto Paz',
-          'especialidad': 'Pintor de exteriores',
-          'calificacion': 4.5,
-          'trabajosRealizados': 67,
-          'ubicacion': 'Cali, Colombia',
-          'precioPorHora': 28.0,
-          'horarioDisponibilidad': 'Lun–Sáb 6:00–16:00',
-          'habilidades': ['Fachadas', 'Impermeabilización', 'Pintura epóxica', 'Muros exteriores'],
-          'disponibleAhora': true,
-          'telefono': '+57 316 987 0011',
-          'correo': 'ernesto.paz@email.com',
-          'sitioWeb': 'www.pinturaernesto.com',
-          'sobreMi': 'Pintor de fachadas con experiencia en impermeabilización y pinturas epóxicas. Garantizo durabilidad y acabados resistentes al clima.',
-        },
-      ],
-      5: [
-        {
-          'id': 9,
-          'nombre': 'Sofía Mendez',
-          'especialidad': 'Limpieza del hogar',
-          'calificacion': 5.0,
-          'trabajosRealizados': 230,
-          'ubicacion': 'Bogotá, Colombia',
-          'precioPorHora': 20.0,
-          'horarioDisponibilidad': 'Lun–Dom 7:00–18:00',
-          'habilidades': ['Limpieza profunda', 'Organización', 'Desinfección', 'Post construcción'],
-          'disponibleAhora': true,
-          'telefono': '+57 322 654 3210',
-          'correo': 'sofia.mendez@email.com',
-          'sitioWeb': 'www.limpiezasofia.com',
-          'sobreMi': 'Profesional de limpieza con 7 años de experiencia. Ofrezco limpieza profunda, organización de espacios y desinfección para hogares y oficinas.',
-        },
-      ],
-      6: [
-        {
-          'id': 10,
-          'nombre': 'Ricardo Leal',
-          'especialidad': 'Jardinero paisajista',
-          'calificacion': 4.8,
-          'trabajosRealizados': 88,
-          'ubicacion': 'Bogotá, Colombia',
-          'precioPorHora': 22.0,
-          'horarioDisponibilidad': 'Lun–Sáb 7:00–15:00',
-          'habilidades': ['Poda artística', 'Diseño de jardines', 'Riego automático', 'Césped'],
-          'disponibleAhora': false,
-          'telefono': '+57 311 222 3344',
-          'correo': 'ricardo.leal@email.com',
-          'sitioWeb': 'www.jardinesricardo.co',
-          'sobreMi': 'Paisajista con pasión por los espacios verdes. Diseño jardines funcionales y estéticos adaptados a cada cliente, con mantenimiento periódico incluido.',
-        },
-      ],
-    };
-
-    final lista = mock[tipoProfesionId] ?? [];
-    return lista.map(Profesional.fromJson).toList();
+  static void _checkStatus(http.Response res) {
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Error ${res.statusCode}: ${res.body}');
+    }
   }
 }

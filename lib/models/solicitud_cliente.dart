@@ -19,12 +19,24 @@ class SolicitudCliente {
 
   factory SolicitudCliente.fromJson(Map<String, dynamic> json) =>
       SolicitudCliente(
-        id:           json['id'] as int,
-        profesional:  json['profesional'] as String,
-        servicio:     json['servicio'] as String,
-        descripcion:  json['descripcion'] as String,
-        fecha:        json['fecha'] as String,
-        presupuesto:  (json['presupuesto'] as num).toDouble(),
-        estado:       json['estado'] as String,
+        id:          json['id'] as int,
+        profesional: json['profesional'] as String? ?? '',
+        servicio:    json['servicio'] as String? ?? '',
+        descripcion: json['descripcion'] as String? ?? '',
+        fecha:       _parseDate(json['fecha']),
+        presupuesto: (json['presupuesto'] as num?)?.toDouble() ?? 0.0,
+        estado:      (json['estado'] as String? ?? '').toLowerCase(),
       );
+
+  static String _parseDate(dynamic value) {
+    if (value == null) return '';
+    final s = value.toString();
+    if (s.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(s);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return s;
+    }
+  }
 }

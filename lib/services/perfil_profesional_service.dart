@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:pro_services/models/profesional.dart';
 
 class PerfilProfesionalService {
-  static const _base = 'https://TU_API_BASE_URL';
+  static const _base = 'http://localhost:5099';
 
   /// Obtener perfil del profesional autenticado.
   static Future<Profesional> getMe(String token) async {
@@ -27,6 +27,7 @@ class PerfilProfesionalService {
     required String correo,
     required double precioPorHora,
     required List<String> habilidades,
+    required int aniosExperiencia,
   }) async {
     final res = await http.put(
       Uri.parse('$_base/profesionales/me'),
@@ -39,7 +40,8 @@ class PerfilProfesionalService {
         'telefono': telefono,
         'correo': correo,
         'precio_por_hora': precioPorHora,
-        'habilidades': habilidades,
+        'habilidades': habilidades.join(', '),
+        'aniosExperiencia': aniosExperiencia,
       }),
     );
     _checkStatus(res);

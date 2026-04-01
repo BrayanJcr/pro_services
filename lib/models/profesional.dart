@@ -14,6 +14,10 @@ class Profesional {
   final String? sitioWeb;
   final String sobreMi;
   final String? avatarUrl;
+  final bool esVerificado;
+  final double? latitud;
+  final double? longitud;
+  final int aniosExperiencia;
 
   const Profesional({
     required this.id,
@@ -31,25 +35,44 @@ class Profesional {
     this.sitioWeb,
     required this.sobreMi,
     this.avatarUrl,
+    required this.esVerificado,
+    this.latitud,
+    this.longitud,
+    required this.aniosExperiencia,
   });
 
   factory Profesional.fromJson(Map<String, dynamic> json) {
     return Profesional(
       id: json['id'] as int,
-      nombre: json['nombre'] as String,
-      especialidad: json['especialidad'] as String,
-      calificacion: (json['calificacion'] as num).toDouble(),
-      trabajosRealizados: json['trabajosRealizados'] as int,
-      ubicacion: json['ubicacion'] as String,
-      precioPorHora: (json['precioPorHora'] as num).toDouble(),
-      horarioDisponibilidad: json['horarioDisponibilidad'] as String,
-      habilidades: List<String>.from(json['habilidades'] as List),
-      disponibleAhora: json['disponibleAhora'] as bool,
-      telefono: json['telefono'] as String,
-      correo: json['correo'] as String,
+      nombre: json['nombre'] as String? ?? '',
+      especialidad: json['especialidad'] as String? ?? '',
+      calificacion: (json['calificacion'] as num?)?.toDouble() ?? 0.0,
+      trabajosRealizados: json['trabajosRealizados'] as int? ?? 0,
+      ubicacion: json['ubicacion'] as String? ?? '',
+      precioPorHora: (json['precioPorHora'] as num?)?.toDouble() ?? 0.0,
+      horarioDisponibilidad: json['horarioDisponibilidad'] as String? ?? '',
+      habilidades: _parseHabilidades(json['habilidades']),
+      disponibleAhora: json['disponibleAhora'] as bool? ?? false,
+      telefono: json['telefono'] as String? ?? '',
+      correo: json['correo'] as String? ?? '',
       sitioWeb: json['sitioWeb'] as String?,
-      sobreMi: json['sobreMi'] as String,
+      sobreMi: json['sobreMi'] as String? ?? '',
       avatarUrl: json['avatarUrl'] as String?,
+      esVerificado: json['esVerificado'] as bool? ?? false,
+      latitud: (json['latitud'] as num?)?.toDouble(),
+      longitud: (json['longitud'] as num?)?.toDouble(),
+      aniosExperiencia: json['aniosExperiencia'] as int? ?? 0,
     );
+  }
+
+  /// La API devuelve habilidades como string separado por comas.
+  static List<String> _parseHabilidades(dynamic value) {
+    if (value == null) return [];
+    if (value is List) return List<String>.from(value);
+    return (value as String)
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
   }
 }

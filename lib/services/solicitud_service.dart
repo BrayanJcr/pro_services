@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:pro_services/models/solicitud_cliente.dart';
 
 class SolicitudService {
-  static const _base = 'https://TU_API_BASE_URL';
+  static const _base = 'http://localhost:5099';
 
   /// Solicitudes enviadas por el cliente autenticado.
   static Future<List<SolicitudCliente>> getMisSolicitudes(String token) async {

@@ -1,69 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:pro_services/main.dart';
+import 'package:pro_services/models/solicitud_cliente.dart';
+import 'package:pro_services/screens/client/detalle_solicitud_screen.dart';
+import 'package:pro_services/services/solicitud_service.dart';
 
-// ── Modelo mock ────────────────────────────────────────────────────────────────
-class _Solicitud {
-  final int id;
-  final String profesional;
-  final String servicio;
-  final String descripcion;
-  final String fecha;
-  final double presupuesto;
-  final String estado;
-
-  const _Solicitud({
-    required this.id,
-    required this.profesional,
-    required this.servicio,
-    required this.descripcion,
-    required this.fecha,
-    required this.presupuesto,
-    required this.estado,
-  });
-}
-
-const _mock = [
-  _Solicitud(
-    id: 1,
-    profesional: 'Andres Molina',
-    servicio: 'Electricista',
-    descripcion: 'Instalación de tomacorrientes en sala y cocina.',
-    fecha: '14 Mar 2026',
-    presupuesto: 280,
-    estado: 'aceptado',
-  ),
-  _Solicitud(
-    id: 2,
-    profesional: 'Luis Herrera',
-    servicio: 'Plomería',
-    descripcion: 'Reparación de tubería con fuga en el baño principal.',
-    fecha: '12 Mar 2026',
-    presupuesto: 150,
-    estado: 'pendiente',
-  ),
-  _Solicitud(
-    id: 3,
-    profesional: 'Sara Gómez',
-    servicio: 'Pintura',
-    descripcion: 'Pintura de fachada exterior, dos pisos.',
-    fecha: '05 Mar 2026',
-    presupuesto: 600,
-    estado: 'completado',
-  ),
-  _Solicitud(
-    id: 4,
-    profesional: 'Jorge Ruiz',
-    servicio: 'Carpintería',
-    descripcion: 'Fabricación de closet empotrado en habitación principal.',
-    fecha: '01 Mar 2026',
-    presupuesto: 420,
-    estado: 'rechazado',
-  ),
-];
-
-// ── Pantalla ───────────────────────────────────────────────────────────────────
 class MisSolicitudesScreen extends StatefulWidget {
-  const MisSolicitudesScreen({super.key});
+  final String token;
+  const MisSolicitudesScreen({super.key, required this.token});
 
   @override
   State<MisSolicitudesScreen> createState() => _MisSolicitudesScreenState();
@@ -71,6 +14,7 @@ class MisSolicitudesScreen extends StatefulWidget {
 
 class _MisSolicitudesScreenState extends State<MisSolicitudesScreen> {
   String _filtro = 'Todos';
+  late Future<List<SolicitudCliente>> _futuro;
 
   static const _filtros = [
     ('Todos', ''),
@@ -80,12 +24,20 @@ class _MisSolicitudesScreenState extends State<MisSolicitudesScreen> {
     ('Rechazado', 'rechazado'),
   ];
 
-  List<_Solicitud> get _filtradas => _filtro == 'Todos'
-      ? _mock
-      : _mock.where((s) {
-          final match = _filtros.firstWhere((f) => f.$1 == _filtro).$2;
-          return s.estado == match;
-        }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _futuro = SolicitudService.getMisSolicitudes(widget.token);
+  }
+
+  void _reload() =>
+      setState(() => _futuro = SolicitudService.getMisSolicitudes(widget.token));
+
+  List<SolicitudCliente> _filtrar(List<SolicitudCliente> lista) {
+    if (_filtro == 'Todos') return lista;
+    final match = _filtros.firstWhere((f) => f.$1 == _filtro).$2;
+    return lista.where((s) => s.estado == match).toList();
+  }
 
   Color _estadoColor(String estado) {
     switch (estado) {
@@ -125,8 +77,6 @@ class _MisSolicitudesScreenState extends State<MisSolicitudesScreen> {
     final textPrimary   = isDark ? Colors.white : const Color(0xFF0F172A);
     final textSecondary = isDark ? Colors.grey.shade400 : Colors.grey.shade600;
 
-    final lista = _filtradas;
-
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -154,7 +104,7 @@ class _MisSolicitudesScreenState extends State<MisSolicitudesScreen> {
       ),
       body: Column(
         children: [
-          // ── Filtros ────────────────────────────────────────────────────────
+          // ── Filtros ──────────────────────────────────────────────────────────
           Container(
             color: isDark ? const Color(0xFF1E293B) : Colors.white,
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -169,23 +119,18 @@ class _MisSolicitudesScreenState extends State<MisSolicitudesScreen> {
                       onTap: () => setState(() => _filtro = f.$1),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 7),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                         decoration: BoxDecoration(
                           color: activo
                               ? const Color(0xFF6366F1)
-                              : (isDark
-                                  ? const Color(0xFF0F172A)
-                                  : const Color(0xFFF1F5F9)),
+                              : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(f.$1,
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: activo
-                                    ? Colors.white
-                                    : textSecondary)),
+                                color: activo ? Colors.white : textSecondary)),
                       ),
                     ),
                   );
@@ -194,194 +139,211 @@ class _MisSolicitudesScreenState extends State<MisSolicitudesScreen> {
             ),
           ),
 
-          // ── Lista ──────────────────────────────────────────────────────────
+          // ── Contenido ────────────────────────────────────────────────────────
           Expanded(
-            child: lista.isEmpty
-                ? Center(
+            child: FutureBuilder<List<SolicitudCliente>>(
+              future: _futuro,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snap.hasError) {
+                  return _ErrorView(
+                    mensaje: snap.error.toString(),
+                    onRetry: _reload,
+                    textSecondary: textSecondary,
+                  );
+                }
+                final lista = _filtrar(snap.data!);
+                if (lista.isEmpty) {
+                  return Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.inbox_rounded,
-                            size: 52, color: textSecondary),
+                        Icon(Icons.inbox_rounded, size: 52, color: textSecondary),
                         const SizedBox(height: 12),
                         Text('Sin solicitudes en esta categoría',
-                            style: TextStyle(
-                                fontSize: 14, color: textSecondary)),
+                            style: TextStyle(fontSize: 14, color: textSecondary)),
                       ],
                     ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: lista.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) {
-                      final s = lista[i];
-                      final color = _estadoColor(s.estado);
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black
-                                  .withValues(alpha: isDark ? 0.3 : 0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: lista.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    final s = lista[i];
+                    final color = _estadoColor(s.estado);
+                    return GestureDetector(
+                      onTap: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetalleSolicitudScreen(
+                              token: widget.token,
+                              solicitud: s,
+                              idProfesional: null,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Cabecera
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: color.withValues(alpha: 0.15),
-                                  child: Text(s.profesional[0],
-                                      style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
-                                          color: color)),
+                          ),
+                        );
+                        if (result == true) _reload();
+                      },
+                      child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 22,
+                                backgroundColor: color.withValues(alpha: 0.15),
+                                child: Text(
+                                  s.profesional.isNotEmpty ? s.profesional[0] : '?',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(s.profesional,
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w800,
-                                              color: textPrimary)),
-                                      const SizedBox(height: 2),
-                                      Text(s.servicio,
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: color)),
-                                    ],
-                                  ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(s.profesional,
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: textPrimary)),
+                                    const SizedBox(height: 2),
+                                    Text(s.servicio,
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+                                  ],
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: color.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(_estadoIcon(s.estado),
-                                          size: 11, color: color),
-                                      const SizedBox(width: 4),
-                                      Text(_estadoLabel(s.estado),
-                                          style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: color)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            // Descripción
-                            Text(s.descripcion,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    color: textSecondary,
-                                    height: 1.4)),
-                            const SizedBox(height: 12),
-                            // Info inferior
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today_rounded,
-                                    size: 13, color: textSecondary),
-                                const SizedBox(width: 4),
-                                Text(s.fecha,
-                                    style: TextStyle(
-                                        fontSize: 12, color: textSecondary)),
-                                const Spacer(),
-                                Icon(Icons.attach_money_rounded,
-                                    size: 14,
-                                    color: const Color(0xFF22C55E)),
-                                Text(
-                                  s.presupuesto.toStringAsFixed(0),
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF22C55E)),
-                                ),
-                                const SizedBox(width: 4),
-                                Text('presupuesto',
-                                    style: TextStyle(
-                                        fontSize: 11, color: textSecondary)),
-                              ],
-                            ),
-                            // Banner completado
-                            if (s.estado == 'completado') ...[
-                              const SizedBox(height: 12),
+                              ),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF22C55E)
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: color.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Row(
-                                  children: const [
-                                    Icon(Icons.task_alt_rounded,
-                                        size: 14, color: Color(0xFF22C55E)),
-                                    SizedBox(width: 6),
-                                    Text('Trabajo completado exitosamente',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF22C55E))),
+                                  children: [
+                                    Icon(_estadoIcon(s.estado), size: 11, color: color),
+                                    const SizedBox(width: 4),
+                                    Text(_estadoLabel(s.estado),
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
                                   ],
                                 ),
                               ),
                             ],
-                            // Banner rechazado
-                            if (s.estado == 'rechazado') ...[
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444)
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  children: const [
-                                    Icon(Icons.cancel_rounded,
-                                        size: 14, color: Color(0xFFEF4444)),
-                                    SizedBox(width: 6),
-                                    Text('El profesional no pudo atenderte',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFFEF4444))),
-                                  ],
-                                ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(s.descripcion,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 13, color: textSecondary, height: 1.4)),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today_rounded, size: 13, color: textSecondary),
+                              const SizedBox(width: 4),
+                              Text(s.fecha, style: TextStyle(fontSize: 12, color: textSecondary)),
+                              const Spacer(),
+                              Icon(Icons.attach_money_rounded, size: 14, color: const Color(0xFF22C55E)),
+                              Text(
+                                s.presupuesto.toStringAsFixed(0),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF22C55E)),
                               ),
+                              const SizedBox(width: 4),
+                              Text('presupuesto', style: TextStyle(fontSize: 11, color: textSecondary)),
                             ],
+                          ),
+                          if (s.estado == 'completado') ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF22C55E).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.task_alt_rounded, size: 14, color: Color(0xFF22C55E)),
+                                  SizedBox(width: 6),
+                                  Text('Trabajo completado exitosamente',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF22C55E))),
+                                ],
+                              ),
+                            ),
                           ],
-                        ),
-                      );
-                    },
-                  ),
+                          if (s.estado == 'rechazado') ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.cancel_rounded, size: 14, color: Color(0xFFEF4444)),
+                                  SizedBox(width: 6),
+                                  Text('El profesional no pudo atenderte',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFEF4444))),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    );
+                  },
+
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+class _ErrorView extends StatelessWidget {
+  final String mensaje;
+  final VoidCallback onRetry;
+  final Color textSecondary;
+  const _ErrorView({required this.mensaje, required this.onRetry, required this.textSecondary});
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline_rounded, size: 48, color: Colors.redAccent),
+            const SizedBox(height: 12),
+            Text('Error al cargar', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textSecondary)),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(mensaje, style: TextStyle(fontSize: 12, color: textSecondary), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
 }

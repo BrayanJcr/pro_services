@@ -1,0 +1,238 @@
+import 'package:flutter/material.dart';
+import 'package:pro_services/main.dart';
+import 'package:pro_services/models/venta.dart';
+import 'package:pro_services/services/venta_service.dart';
+
+class MisCobrosScreen extends StatefulWidget {
+  const MisCobrosScreen({super.key, required this.token});
+  final String token;
+
+  @override
+  State<MisCobrosScreen> createState() => _MisCobrosScreenState();
+}
+
+class _MisCobrosScreenState extends State<MisCobrosScreen> {
+  late Future<List<Venta>> _futuro;
+
+  @override
+  void initState() {
+    super.initState();
+    _futuro = VentaService.getMisCobros(widget.token);
+  }
+
+  void _reload() {
+    setState(() {
+      _futuro = VentaService.getMisCobros(widget.token);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor =
+        isDark ? const Color(0xFF0F172A) : const Color(0xFFF5F7FA);
+    final cardColor = isDark ? const Color(0xFF1E293B) : Colors.white;
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: bgColor,
+        title: const Text('Mis Cobros'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+            ),
+            onPressed: () => MyApp.of(context).toggleTheme(),
+          ),
+        ],
+      ),
+      body: FutureBuilder<List<Venta>>(
+        future: _futuro,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return _ErrorView(
+              error: snapshot.error.toString(),
+              onRetry: _reload,
+            );
+          }
+          final ventas = snapshot.data ?? [];
+
+          if (ventas.isEmpty) {
+            return const Center(
+              child: Text(
+                'Aún no tenés cobros registrados',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
+          }
+
+          final totalCobrado =
+              ventas.fold<double>(0, (sum, v) => sum + v.montoTotal);
+
+          return Column(
+            children: [
+              // Header card
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Total cobrado',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'S/ ${totalCobrado.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${ventas.length} cobro${ventas.length == 1 ? '' : 's'} registrado${ventas.length == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                          fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+              // List
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: ventas.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final v = ventas[index];
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Cobro #${v.id}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                'S/ ${v.montoTotal.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_today_rounded,
+                                  size: 13, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text(
+                                v.fecha,
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              if (v.metodoPago.isNotEmpty) ...[
+                                Container(
+                                  padding:
+                                      const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withOpacity(0.15),
+                                    borderRadius:
+                                        BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    v.metodoPago,
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.grey),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              if (v.codigoOperacion.isNotEmpty)
+                                Text(
+                                  'Ref: ${v.codigoOperacion}',
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.grey),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.error, required this.onRetry});
+  final String error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

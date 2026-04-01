@@ -1,5 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:pro_services/main.dart';
+import 'package:pro_services/screens/client/chat_proyecto_screen.dart';
+import 'package:pro_services/screens/professional/crear_resena_cliente_screen.dart';
+import 'package:pro_services/services/proyecto_service.dart';
 
 class DetalleProyectoScreen extends StatefulWidget {
   final int id;
@@ -15,6 +20,8 @@ class DetalleProyectoScreen extends StatefulWidget {
   final double presupuesto;
   final String estado;
   final double progreso;
+  final String token;
+  final int idUsuario;
 
   const DetalleProyectoScreen({
     super.key,
@@ -31,6 +38,8 @@ class DetalleProyectoScreen extends StatefulWidget {
     required this.presupuesto,
     required this.estado,
     required this.progreso,
+    required this.token,
+    required this.idUsuario,
   });
 
   @override
@@ -41,6 +50,13 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
   final List<String> _notas = [];
   final List<String> _fotos = []; // mock: cada elemento = una foto subida
   bool _completado = false;
+  late double _progreso;
+
+  @override
+  void initState() {
+    super.initState();
+    _progreso = widget.progreso;
+  }
 
   Color get _estadoColor {
     if (_completado) return const Color(0xFF22C55E);
@@ -107,6 +123,34 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _guardarProgreso() async {
+    try {
+      const base = 'http://localhost:5099';
+      final res = await http.patch(
+        Uri.parse('$base/proyectos/${widget.id}/progreso'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${widget.token}',
+        },
+        body: jsonEncode({'progreso': _progreso}),
+      );
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('Progreso actualizado: ${(_progreso * 100).toInt()}%')),
+        );
+      } else {
+        throw Exception('Error ${res.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   @override
@@ -730,7 +774,45 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: () {},
+                        onPressed: () async {
+                          final confirmar = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Aceptar proyecto',
+                                  style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800)),
+                              content: const Text(
+                                  '¿Confirmás que querés aceptar este proyecto?'),
+                              actions: [
+                                TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(ctx, false),
+                                    child: const Text('Cancelar')),
+                                ElevatedButton(
+                                    onPressed: () =>
+                                        Navigator.pop(ctx, true),
+                                    child: const Text('Aceptar')),
+                              ],
+                            ),
+                          );
+                          if (confirmar != true) return;
+                          try {
+                            await ProyectoService.aceptar(
+                                widget.token, widget.id);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Proyecto aceptado')),
+                            );
+                            Navigator.pop(context, true);
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        },
                         child: const Text('Aceptar',
                             style: TextStyle(
                                 fontSize: 14,
@@ -752,7 +834,43 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: () {},
+                  onPressed: () async {
+                    final confirmar = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Completar proyecto',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800)),
+                        content: const Text(
+                            '¿Confirmás que el trabajo fue finalizado?'),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancelar')),
+                          ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Confirmar')),
+                        ],
+                      ),
+                    );
+                    if (confirmar != true) return;
+                    try {
+                      await ProyectoService.completar(
+                          widget.token, widget.id);
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Proyecto completado')),
+                      );
+                      Navigator.pop(context, true);
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
+                  },
                   icon: const Icon(Icons.task_alt_rounded, size: 18),
                   label: const Text('Marcar como completado',
                       style: TextStyle(
@@ -771,7 +889,18 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatProyectoScreen(
+                        token: widget.token,
+                        proyectoId: widget.id,
+                        nombreProfesional: widget.cliente,
+                      ),
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
                 label: const Text('Contactar al cliente',
                     style: TextStyle(

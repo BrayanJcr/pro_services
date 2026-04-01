@@ -29,10 +29,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await AuthService.login(
         _emailController.text.trim(),
         _passwordController.text,
+        rol: _selectedRole == 0 ? 'cliente' : 'profesional',
       );
       final destination = result.rol == 'cliente'
-          ? const HomeClientScreen()
-          : const HomeProfessionalScreen();
+          ? HomeClientScreen(token: result.token, nombre: result.nombre)
+          : HomeProfessionalScreen(token: result.token, nombre: result.nombre);
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:pro_services/main.dart';
 import 'package:pro_services/models/tipo_profesion.dart';
 import 'package:pro_services/services/tipo_profesion_service.dart';
+import 'package:pro_services/services/notificacion_service.dart';
 import 'package:pro_services/screens/auth/login_screen.dart' show LoginScreen;
 import 'package:pro_services/screens/client/profesionales_screen.dart';
 import 'package:pro_services/screens/client/mis_solicitudes_screen.dart';
+import 'package:pro_services/screens/client/notificaciones_screen.dart';
+import 'package:pro_services/screens/client/conversaciones_screen.dart';
+import 'package:pro_services/screens/client/favoritos_screen.dart';
+import 'package:pro_services/screens/client/estimador_presupuesto_screen.dart';
+import 'package:pro_services/screens/client/historial_pagos_screen.dart';
 
 // Mapeo de clave de icono (viene del API) → IconData
 IconData _resolveIcon(String key) {
@@ -33,21 +39,30 @@ Color _resolveColor(String hex) {
 }
 
 class HomeClientScreen extends StatefulWidget {
-  const HomeClientScreen({super.key});
+  final String token;
+  final String nombre;
+  const HomeClientScreen({super.key, required this.token, required this.nombre});
 
   @override
   State<HomeClientScreen> createState() => _HomeClientScreenState();
 }
 
 class _HomeClientScreenState extends State<HomeClientScreen> {
-  static const String _loggedUser = 'Carlos Ramírez';
-
   late Future<List<TipoProfesion>> _tiposFuture;
+  int _noLeidasCount = 0;
 
   @override
   void initState() {
     super.initState();
     _tiposFuture = TipoProfesionService.getTipos();
+    _cargarNotificaciones();
+  }
+
+  Future<void> _cargarNotificaciones() async {
+    try {
+      final count = await NotificacionService.contarNoLeidas(widget.token);
+      if (mounted) setState(() => _noLeidasCount = count);
+    } catch (_) {}
   }
 
   void _reload() {
@@ -79,12 +94,58 @@ class _HomeClientScreenState extends State<HomeClientScreen> {
         ),
         actions: [
           IconButton(
+            icon: Icon(Icons.chat_bubble_rounded,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+            tooltip: 'Conversaciones',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) =>
+                      ConversacionesClienteScreen(token: widget.token)),
+            ),
+          ),
+          IconButton(
             icon: Icon(Icons.receipt_long_rounded,
                 color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
             tooltip: 'Mis solicitudes',
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(
-                    builder: (_) => const MisSolicitudesScreen())),
+                    builder: (_) => MisSolicitudesScreen(token: widget.token))),
+          ),
+          IconButton(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(Icons.notifications_rounded,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+                if (_noLeidasCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        _noLeidasCount > 99 ? '99+' : '$_noLeidasCount',
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => NotificacionesScreen(token: widget.token)),
+              );
+              _cargarNotificaciones();
+            },
           ),
           IconButton(
             icon: Icon(
@@ -120,7 +181,7 @@ class _HomeClientScreenState extends State<HomeClientScreen> {
                         ? const Color(0xFF475569)
                         : const Color(0xFF111827),
                     child: Text(
-                      _loggedUser[0],
+                      widget.nombre[0],
                       style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -137,7 +198,7 @@ class _HomeClientScreenState extends State<HomeClientScreen> {
                             : Colors.grey.shade500),
                   ),
                   Text(
-                    _loggedUser,
+                    widget.nombre,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -181,7 +242,45 @@ class _HomeClientScreenState extends State<HomeClientScreen> {
                     : Colors.grey.shade600,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _QuickActionButton(
+                  icon: Icons.favorite_rounded,
+                  label: 'Favoritos',
+                  isDark: isDark,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => FavoritosScreen(token: widget.token)),
+                  ),
+                ),
+                _QuickActionButton(
+                  icon: Icons.calculate_rounded,
+                  label: 'Estimador',
+                  isDark: isDark,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            EstimadorPresupuestoScreen(token: widget.token)),
+                  ),
+                ),
+                _QuickActionButton(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'Historial',
+                  isDark: isDark,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            HistorialPagosScreen(token: widget.token)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             FutureBuilder<List<TipoProfesion>>(
               future: _tiposFuture,
               builder: (context, snapshot) {
@@ -248,6 +347,62 @@ class _HomeClientScreenState extends State<HomeClientScreen> {
   }
 }
 
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cardColor = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textColor = isDark ? Colors.grey.shade300 : const Color(0xFF374151);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 96,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                size: 28,
+                color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB)),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CategoryCard extends StatelessWidget {
   final TipoProfesion tipo;
   final bool isDark;
@@ -255,10 +410,15 @@ class _CategoryCard extends StatelessWidget {
   const _CategoryCard({required this.tipo, required this.isDark});
 
   void _navegar(BuildContext context) {
+    // Buscar el token desde el ancestro HomeClientScreen
+    final homeState = context.findAncestorStateOfType<_HomeClientScreenState>();
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ProfesionalesScreen(categoria: tipo),
+        builder: (_) => ProfesionalesScreen(
+          categoria: tipo,
+          token: homeState?.widget.token ?? '',
+        ),
       ),
     );
   }

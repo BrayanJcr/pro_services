@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pro_services/main.dart';
+import 'package:pro_services/models/tipo_profesion.dart';
+import 'package:pro_services/services/perfil_profesional_service.dart';
+import 'package:pro_services/services/tipo_profesion_service.dart';
 
 class EditarPerfilScreen extends StatefulWidget {
-  const EditarPerfilScreen({super.key});
+  final String token;
+  const EditarPerfilScreen({super.key, required this.token});
 
   @override
   State<EditarPerfilScreen> createState() => _EditarPerfilScreenState();
@@ -12,55 +16,109 @@ class EditarPerfilScreen extends StatefulWidget {
 class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores
-  final _nombreCtrl       = TextEditingController(text: 'Andres Molina');
-  final _especialidadCtrl = TextEditingController(text: 'Electricista certificado');
-  final _bioCtrl          = TextEditingController(
-      text: 'Profesional con más de 8 años de experiencia en instalaciones eléctricas residenciales e industriales.');
-  final _precioCtrl       = TextEditingController(text: '45');
-  final _telefonoCtrl     = TextEditingController(text: '+57 300 123 4567');
-  final _correoCtrl       = TextEditingController(text: 'andres.molina@email.com');
-  final _ciudadCtrl       = TextEditingController(text: 'Bogotá, Colombia');
-
-  // Habilidades
-  final List<String> _habilidades = [
-    'Instalaciones eléctricas',
-    'Mantenimiento',
-    'Redes industriales',
-    'Domótica',
-  ];
+  final _nombreCtrl    = TextEditingController();
+  final _bioCtrl       = TextEditingController();
+  final _precioCtrl    = TextEditingController();
+  final _telefonoCtrl  = TextEditingController();
+  final _correoCtrl    = TextEditingController();
+  final _ciudadCtrl    = TextEditingController();
   final _habilidadCtrl = TextEditingController();
+  final _aniosCtrl     = TextEditingController();
 
+  List<String> _habilidades = [];
+  List<TipoProfesion> _tiposProfesion = [];
+  String? _especialidadSeleccionada;
+  bool _cargando = true;
   bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarTipos();
+    _cargarPerfil();
+  }
+
+  Future<void> _cargarTipos() async {
+    try {
+      final tipos = await TipoProfesionService.getTipos();
+      if (!mounted) return;
+      setState(() => _tiposProfesion = tipos);
+    } catch (_) {}
+  }
+
+  Future<void> _cargarPerfil() async {
+    try {
+      final perfil = await PerfilProfesionalService.getMe(widget.token);
+      if (!mounted) return;
+      _nombreCtrl.text    = perfil.nombre;
+      _bioCtrl.text       = perfil.sobreMi;
+      _precioCtrl.text    = perfil.precioPorHora.toStringAsFixed(0);
+      _telefonoCtrl.text  = perfil.telefono;
+      _correoCtrl.text    = perfil.correo;
+      _ciudadCtrl.text    = perfil.ubicacion;
+      _habilidades        = List<String>.from(perfil.habilidades);
+      _aniosCtrl.text     = perfil.aniosExperiencia.toString();
+      setState(() {
+        _especialidadSeleccionada =
+            perfil.especialidad.isNotEmpty ? perfil.especialidad : null;
+        _cargando = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _cargando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar perfil: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
 
   @override
   void dispose() {
     _nombreCtrl.dispose();
-    _especialidadCtrl.dispose();
     _bioCtrl.dispose();
     _precioCtrl.dispose();
     _telefonoCtrl.dispose();
     _correoCtrl.dispose();
     _ciudadCtrl.dispose();
     _habilidadCtrl.dispose();
+    _aniosCtrl.dispose();
     super.dispose();
   }
 
-  void _guardar() async {
+  Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _guardando = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    setState(() => _guardando = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Perfil actualizado correctamente'),
-        backgroundColor: const Color(0xFF22C55E),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-    Navigator.pop(context);
+    try {
+      await PerfilProfesionalService.updateMe(
+        widget.token,
+        nombre:          _nombreCtrl.text.trim(),
+        especialidad:    _especialidadSeleccionada ?? '',
+        bio:             _bioCtrl.text.trim(),
+        ciudad:          _ciudadCtrl.text.trim(),
+        telefono:        _telefonoCtrl.text.trim(),
+        correo:          _correoCtrl.text.trim(),
+        precioPorHora:   double.tryParse(_precioCtrl.text) ?? 0,
+        habilidades:     _habilidades,
+        aniosExperiencia: int.tryParse(_aniosCtrl.text) ?? 0,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Perfil actualizado correctamente'),
+          backgroundColor: const Color(0xFF22C55E),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
   }
 
   void _agregarHabilidad() {
@@ -106,7 +164,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
           ),
         ],
       ),
-      body: Form(
+      body: _cargando
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
         key: _formKey,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -172,15 +232,70 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                           v == null || v.trim().isEmpty ? 'Campo requerido' : null,
                     ),
                     const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: _tiposProfesion.any((t) => t.nombre == _especialidadSeleccionada)
+                          ? _especialidadSeleccionada
+                          : null,
+                      style: TextStyle(fontSize: 13, color: textPrimary),
+                      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      decoration: InputDecoration(
+                        labelText: 'Especialidad / Profesión',
+                        labelStyle: TextStyle(fontSize: 13, color: textSecondary),
+                        prefixIcon: const Icon(Icons.work_rounded,
+                            size: 18, color: Color(0xFF6366F1)),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: borderColor),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: borderColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF6366F1)),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                        ),
+                      ),
+                      items: _tiposProfesion
+                          .where((t) => t.nombre.isNotEmpty)
+                          .fold<Map<String, TipoProfesion>>({}, (map, t) {
+                            map.putIfAbsent(t.nombre, () => t);
+                            return map;
+                          })
+                          .values
+                          .map((t) => DropdownMenuItem<String>(
+                                value: t.nombre,
+                                child: Text(t.nombre,
+                                    style: TextStyle(
+                                        fontSize: 13, color: textPrimary)),
+                              ))
+                          .toList(),
+                      onChanged: (val) =>
+                          setState(() => _especialidadSeleccionada = val),
+                      validator: (v) =>
+                          v == null || v.isEmpty ? 'Campo requerido' : null,
+                    ),
+                    const SizedBox(height: 14),
                     _Field(
-                      ctrl: _especialidadCtrl,
-                      label: 'Especialidad / Profesión',
-                      icon: Icons.work_rounded,
+                      ctrl: _aniosCtrl,
+                      label: 'Años de experiencia',
+                      icon: Icons.timeline_rounded,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
                       borderColor: borderColor,
-                      validator: (v) =>
-                          v == null || v.trim().isEmpty ? 'Campo requerido' : null,
                     ),
                     const SizedBox(height: 14),
                     _Field(

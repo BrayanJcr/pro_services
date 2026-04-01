@@ -5,7 +5,7 @@ import 'package:pro_services/models/nota.dart';
 import 'package:pro_services/models/foto_proyecto.dart';
 
 class ProyectoService {
-  static const _base = 'https://TU_API_BASE_URL';
+  static const _base = 'http://localhost:5099';
 
   // ── Proyectos ─────────────────────────────────────────────────────────────
 
@@ -53,6 +53,15 @@ class ProyectoService {
   static Future<void> completar(String token, int id) async {
     final res = await http.patch(
       Uri.parse('$_base/proyectos/$id/completar'),
+      headers: _headers(token),
+    );
+    _checkStatus(res);
+  }
+
+  /// Re-contratar al mismo profesional (crea una nueva solicitud).
+  static Future<void> reContratar(String token, int id) async {
+    final res = await http.post(
+      Uri.parse('$_base/proyectos/$id/re-contratar'),
       headers: _headers(token),
     );
     _checkStatus(res);
