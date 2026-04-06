@@ -18,7 +18,7 @@ class FavoritoService {
   static Future<Set<int>> getIdsFavoritos(String token) async {
     try {
       final res = await http.get(
-        Uri.parse('$_base/favoritos'),
+        Uri.parse('$_base/api/FavoritoProfesional'),
         headers: _headers(token),
       );
       _checkStatus(res);
@@ -31,7 +31,7 @@ class FavoritoService {
 
   static Future<void> agregar(String token, int idProfesional) async {
     final res = await http.post(
-      Uri.parse('$_base/favoritos'),
+      Uri.parse('$_base/api/FavoritoProfesional'),
       headers: _headers(token),
       body: jsonEncode({'idProfesional': idProfesional}),
     );
@@ -41,7 +41,7 @@ class FavoritoService {
 
   static Future<void> quitar(String token, int idProfesional) async {
     final res = await http.delete(
-      Uri.parse('$_base/favoritos/$idProfesional'),
+      Uri.parse('$_base/api/FavoritoProfesional/$idProfesional'),
       headers: _headers(token),
     );
     _checkStatus(res);

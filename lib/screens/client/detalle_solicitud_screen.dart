@@ -4,12 +4,17 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:pro_services/main.dart';
 import 'package:pro_services/models/cotizacion.dart';
+import 'package:pro_services/models/foto_proyecto.dart';
 import 'package:pro_services/models/solicitud_cliente.dart';
 import 'package:pro_services/screens/client/chat_proyecto_screen.dart';
 import 'package:pro_services/screens/client/comparar_cotizaciones_screen.dart';
 import 'package:pro_services/screens/client/crear_disputa_screen.dart';
 import 'package:pro_services/screens/client/crear_resena_screen.dart';
+import 'package:pro_services/screens/client/pago_screen.dart';
+import 'package:pro_services/screens/client/tracking_servicio_screen.dart';
 import 'package:pro_services/services/cotizacion_service.dart';
+import 'package:pro_services/services/foto_proyecto_service.dart';
+import 'package:pro_services/services/pago_service.dart';
 import 'package:pro_services/services/proyecto_service.dart';
 
 class DetalleSolicitudScreen extends StatefulWidget {
@@ -33,6 +38,7 @@ class DetalleSolicitudScreen extends StatefulWidget {
 
 class _DetalleSolicitudScreenState extends State<DetalleSolicitudScreen> {
   Future<List<Cotizacion>>? _cotizacionesFuture;
+  bool _liberandoPago = false;
 
   @override
   void initState() {
@@ -49,6 +55,95 @@ class _DetalleSolicitudScreenState extends State<DetalleSolicitudScreen> {
         _cotizacionesFuture = CotizacionService.getPorUsuario(
             widget.token, widget.idUsuario!);
       });
+    }
+  }
+
+  Future<void> _irAPantallaPago() async {
+    final resultado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PagoScreen(
+          token: widget.token,
+          idProfesional: widget.idProfesional ?? 0,
+          monto: widget.solicitud.presupuesto,
+          nombreProfesional: widget.solicitud.profesional,
+        ),
+      ),
+    );
+    if (resultado == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pago procesado exitosamente'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    }
+  }
+
+  Future<void> _liberarPago() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Liberar pago'),
+        content: const Text(
+          '¿Confirmás la liberación del pago al profesional? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Liberar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+
+    setState(() => _liberandoPago = true);
+    try {
+      // Buscamos el id del pago asociado a esta solicitud usando el idProfesional
+      final pagos = await PagoService.getMisPagos(widget.token);
+      final pagoAsociado = pagos.where(
+        (p) =>
+            p.idProfesional == (widget.idProfesional ?? 0) &&
+            p.estadoPago == 'capturado',
+      );
+      if (pagoAsociado.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se encontró un pago capturado para liberar'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
+      await PagoService.liberarPago(widget.token, pagoAsociado.first.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pago liberado al profesional exitosamente'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al liberar el pago: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _liberandoPago = false);
     }
   }
 
@@ -366,10 +461,101 @@ class _DetalleSolicitudScreenState extends State<DetalleSolicitudScreen> {
               const SizedBox(height: 16),
             ],
 
+            // ── Sección 3.5 — Fotos del trabajo (read-only, solo aceptado/completado) ──
+            if (s.estado == 'aceptado' || s.estado == 'completado') ...[
+              _FotosTrabajoSection(
+                token: widget.token,
+                proyectoId: s.id,
+                cardBg: cardBg,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+                isDark: isDark,
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // ── Sección 4 — Acciones ─────────────────────────────────────
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Procesar pago + Ver tracking (solo si está en progreso / aceptado)
+                if (s.estado == 'aceptado') ...[
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      icon: const Text('💳',
+                          style: TextStyle(fontSize: 16)),
+                      label: const Text('Procesar pago',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _irAPantallaPago,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.gps_fixed_rounded, size: 18),
+                      label: const Text('Ver tracking',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0EA5E9),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TrackingServicioScreen(
+                            token:              widget.token,
+                            proyectoId:         s.id,
+                            nombreProfesional:  s.profesional,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+                // Liberar pago (solo si completado)
+                if (s.estado == 'completado') ...[
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      icon: const Text('✅',
+                          style: TextStyle(fontSize: 16)),
+                      label: _liberandoPago
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Liberar pago',
+                              style: TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _liberandoPago ? null : _liberarPago,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 // Reseña (solo si completado)
                 if (s.estado == 'completado') ...[
                   SizedBox(
@@ -484,6 +670,149 @@ class _DetalleSolicitudScreenState extends State<DetalleSolicitudScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Fotos del trabajo (cliente read-only) ─────────────────────────────────────
+
+class _FotosTrabajoSection extends StatelessWidget {
+  final String token;
+  final int proyectoId;
+  final Color cardBg;
+  final Color textPrimary;
+  final Color textSecondary;
+  final bool isDark;
+
+  const _FotosTrabajoSection({
+    required this.token,
+    required this.proyectoId,
+    required this.cardBg,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<FotoProyecto>>(
+      future: FotoProyectoService.getFotos(token, proyectoId),
+      builder: (context, snapshot) {
+        // Si está cargando: no mostramos nada (evita flash de layout)
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        // Si hay error o lista vacía: no mostramos la sección
+        if (snapshot.hasError) return const SizedBox.shrink();
+        final fotos = snapshot.data ?? [];
+        if (fotos.isEmpty) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.07),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.photo_library_rounded,
+                    size: 16,
+                    color: Color(0xFF6366F1),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Fotos del trabajo',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${fotos.length}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF6366F1),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 90,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: fotos.length,
+                  itemBuilder: (context, index) {
+                    final foto = fotos[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        right: index < fotos.length - 1 ? 10 : 0,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          foto.url,
+                          fit: BoxFit.cover,
+                          width: 80,
+                          height: 80,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 80,
+                            height: 80,
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : const Color(0xFFE2E8F0),
+                            child: Icon(
+                              Icons.broken_image_rounded,
+                              size: 28,
+                              color: textSecondary,
+                            ),
+                          ),
+                          loadingBuilder: (_, child, progress) {
+                            if (progress == null) return child;
+                            return Container(
+                              width: 80,
+                              height: 80,
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

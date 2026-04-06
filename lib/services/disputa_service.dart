@@ -23,7 +23,7 @@ class DisputaService {
     required String descripcion,
   }) async {
     final res = await http.post(
-      Uri.parse('$_base/disputas'),
+      Uri.parse('$_base/api/Disputa'),
       headers: _headers(token),
       body: jsonEncode({
         'idProyecto': idProyecto,
@@ -37,7 +37,7 @@ class DisputaService {
 
   static Future<List<Disputa>> getMias(String token) async {
     final res = await http.get(
-      Uri.parse('$_base/disputas/me'),
+      Uri.parse('$_base/api/Disputa/me'),
       headers: _headers(token),
     );
     _checkStatus(res);

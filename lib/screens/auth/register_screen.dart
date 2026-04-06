@@ -3,6 +3,7 @@ import 'package:pro_services/main.dart';
 import 'package:pro_services/screens/client/home_client_screen.dart';
 import 'package:pro_services/screens/professional/home_professional_screen.dart';
 import 'package:pro_services/services/auth_service.dart';
+import 'package:pro_services/services/error_log_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   final int initialRole;
@@ -39,6 +40,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         correo: _emailController.text.trim(),
         contrasena: _passwordController.text,
         rol: _selectedRole == 0 ? 'cliente' : 'profesional',
+      );
+      ErrorLogService.configurar(
+        token: result.token,
+        email: _emailController.text.trim(),
       );
       final destination = result.rol == 'cliente'
           ? HomeClientScreen(token: result.token, nombre: result.nombre)

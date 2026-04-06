@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pro_services/main.dart';
 import 'package:pro_services/models/proyecto.dart';
+import 'package:pro_services/screens/professional/perfil_cliente_screen.dart';
 import 'package:pro_services/services/proyecto_service.dart';
 
 class SolicitudesEntrantesScreen extends StatefulWidget {
@@ -159,6 +160,7 @@ class _SolicitudesEntrantesScreenState
                 accionando: _accionando[proyecto.id] ?? false,
                 onAceptar: () => _aceptar(proyecto),
                 onRechazar: () => _rechazar(proyecto),
+                token: widget.token,
               );
             },
           );
@@ -178,6 +180,7 @@ class _SolicitudCard extends StatelessWidget {
   final bool accionando;
   final VoidCallback onAceptar;
   final VoidCallback onRechazar;
+  final String token;
 
   const _SolicitudCard({
     required this.proyecto,
@@ -187,6 +190,7 @@ class _SolicitudCard extends StatelessWidget {
     required this.accionando,
     required this.onAceptar,
     required this.onRechazar,
+    required this.token,
   });
 
   @override
@@ -232,12 +236,25 @@ class _SolicitudCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      proyecto.cliente,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PerfilClienteScreen(
+                            token: token,
+                            idCliente: proyecto.idUsuario,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        proyecto.cliente,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                          decoration: TextDecoration.underline,
+                          decorationColor: const Color(0xFF6366F1),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),

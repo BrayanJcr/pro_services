@@ -24,7 +24,7 @@ class ResenaClienteService {
     String? comentario,
   }) async {
     final res = await http.post(
-      Uri.parse('$_base/resenas-cliente'),
+      Uri.parse('$_base/api/ResenaCliente'),
       headers: _headers(token),
       body: jsonEncode({
         'idUsuario': idUsuario,
@@ -39,7 +39,7 @@ class ResenaClienteService {
 
   static Future<List<ResenaCliente>> getPorUsuario(int idUsuario) async {
     final res = await http.get(
-      Uri.parse('$_base/resenas-cliente/PorUsuario/$idUsuario'),
+      Uri.parse('$_base/api/ResenaCliente/PorUsuario/$idUsuario'),
     );
     _checkStatus(res);
     final list = jsonDecode(res.body) as List;
@@ -48,7 +48,7 @@ class ResenaClienteService {
 
   static Future<List<ResenaCliente>> getPorProfesional(String token, int idProfesional) async {
     final res = await http.get(
-      Uri.parse('$_base/resenas-cliente/PorProfesional/$idProfesional'),
+      Uri.parse('$_base/api/ResenaCliente/PorProfesional/$idProfesional'),
       headers: _headers(token),
     );
     _checkStatus(res);

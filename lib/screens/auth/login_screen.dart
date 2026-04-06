@@ -4,6 +4,7 @@ import 'package:pro_services/screens/auth/register_screen.dart';
 import 'package:pro_services/screens/client/home_client_screen.dart';
 import 'package:pro_services/screens/professional/home_professional_screen.dart';
 import 'package:pro_services/services/auth_service.dart';
+import 'package:pro_services/services/error_log_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,6 +31,10 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text,
         rol: _selectedRole == 0 ? 'cliente' : 'profesional',
+      );
+      ErrorLogService.configurar(
+        token: result.token,
+        email: _emailController.text.trim(),
       );
       final destination = result.rol == 'cliente'
           ? HomeClientScreen(token: result.token, nombre: result.nombre)

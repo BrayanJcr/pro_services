@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pro_services/main.dart';
 import 'package:pro_services/models/tipo_profesion.dart';
+import 'package:pro_services/screens/professional/solicitar_verificacion_screen.dart';
 import 'package:pro_services/services/perfil_profesional_service.dart';
 import 'package:pro_services/services/tipo_profesion_service.dart';
+import 'package:pro_services/services/ubicacion_service.dart';
 
 class EditarPerfilScreen extends StatefulWidget {
   final String token;
@@ -30,6 +32,8 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
   String? _especialidadSeleccionada;
   bool _cargando = true;
   bool _guardando = false;
+  bool _guardandoUbicacion = false;
+  bool _ubicacionActualizada = false;
 
   @override
   void initState() {
@@ -118,6 +122,39 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       );
     } finally {
       if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  Future<void> _actualizarUbicacion() async {
+    setState(() => _guardandoUbicacion = true);
+    try {
+      // Coordenadas hardcodeadas por ahora (Lima, Perú).
+      // En producción se reemplaza por geolocator una vez configurados los permisos nativos.
+      const double latSimulada = -12.0464;
+      const double lonSimulada = -77.0428;
+      await UbicacionService.actualizarUbicacion(
+        widget.token,
+        latitud: latSimulada,
+        longitud: lonSimulada,
+      );
+      if (!mounted) return;
+      setState(() => _ubicacionActualizada = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ubicación actualizada correctamente'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al actualizar ubicación: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _guardandoUbicacion = false);
     }
   }
 
@@ -457,6 +494,82 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                       ],
                     ),
                   ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Ubicación ──────────────────────────────────────────────────
+              _SectionLabel(label: 'Ubicación y cobertura', textPrimary: textPrimary),
+              const SizedBox(height: 12),
+              _card(
+                isDark: isDark,
+                cardBg: cardBg,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _ubicacionActualizada
+                          ? '✓ Ubicación actualizada'
+                          : 'Tu ubicación ayuda a los clientes a encontrarte',
+                      style: TextStyle(fontSize: 13, color: textSecondary),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _guardandoUbicacion ? null : _actualizarUbicacion,
+                        icon: _guardandoUbicacion
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.my_location_rounded, size: 18),
+                        label: const Text('Actualizar mi ubicación'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Verificación ───────────────────────────────────────────────
+              _card(
+                isDark: isDark,
+                cardBg: cardBg,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.verified_user_rounded,
+                      color: Color(0xFF6366F1)),
+                  title: Text(
+                    'Verificar mi perfil',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: textPrimary,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Subí documentos para obtener el badge',
+                    style: TextStyle(fontSize: 12, color: textSecondary),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                      size: 14),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SolicitarVerificacionScreen(token: widget.token),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 32),

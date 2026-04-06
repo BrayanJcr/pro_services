@@ -15,8 +15,10 @@ class Profesional {
   final String sobreMi;
   final String? avatarUrl;
   final bool esVerificado;
+  final int nivelVerificacion;
   final double? latitud;
   final double? longitud;
+  final double? distanciaKm; // calculado en el cliente, no viene del API directamente
   final int aniosExperiencia;
 
   const Profesional({
@@ -36,8 +38,10 @@ class Profesional {
     required this.sobreMi,
     this.avatarUrl,
     required this.esVerificado,
+    this.nivelVerificacion = 0,
     this.latitud,
     this.longitud,
+    this.distanciaKm,
     required this.aniosExperiencia,
   });
 
@@ -59,8 +63,10 @@ class Profesional {
       sobreMi: json['sobreMi'] as String? ?? '',
       avatarUrl: json['avatarUrl'] as String?,
       esVerificado: json['esVerificado'] as bool? ?? false,
+      nivelVerificacion: json['nivelVerificacion'] as int? ?? 0,
       latitud: (json['latitud'] as num?)?.toDouble(),
       longitud: (json['longitud'] as num?)?.toDouble(),
+      distanciaKm: (json['distanciaKm'] as num?)?.toDouble(),
       aniosExperiencia: json['aniosExperiencia'] as int? ?? 0,
     );
   }

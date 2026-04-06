@@ -6,6 +6,8 @@ import 'package:pro_services/models/foto_proyecto.dart';
 import 'package:pro_services/models/profesional.dart';
 import 'package:pro_services/models/resena.dart';
 import 'package:pro_services/screens/client/crear_solicitud_screen.dart';
+import 'package:pro_services/screens/client/disponibilidad_profesional_screen.dart';
+import 'package:pro_services/screens/client/portfolio_profesional_screen.dart';
 import 'package:pro_services/services/resena_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -149,9 +151,9 @@ class _PerfilProfesionalScreenState extends State<PerfilProfesionalScreen> {
                           color: textPrimary,
                         ),
                       ),
-                      if (profesional.esVerificado) ...[
+                      if (profesional.nivelVerificacion > 0) ...[
                         const SizedBox(width: 4),
-                        const Icon(Icons.verified_rounded, color: Colors.green, size: 20),
+                        _VerificacionBadge(nivel: profesional.nivelVerificacion),
                       ],
                     ],
                   ),
@@ -625,6 +627,54 @@ class _PerfilProfesionalScreenState extends State<PerfilProfesionalScreen> {
             ),
             const SizedBox(height: 16),
 
+            // --- Accesos rápidos: Disponibilidad y Portfolio ---
+            Row(
+              children: [
+                Expanded(
+                  child: _AccesoRapidoCard(
+                    icon: Icons.calendar_month_rounded,
+                    color: const Color(0xFF6366F1),
+                    label: 'Ver disponibilidad',
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DisponibilidadProfesionalScreen(
+                            token: widget.token,
+                            idProfesional: widget.profesional.id,
+                            nombreProfesional: profesional.nombre,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _AccesoRapidoCard(
+                    icon: Icons.photo_library_rounded,
+                    color: const Color(0xFF0EA5E9),
+                    label: 'Ver portfolio',
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PortfolioProfesionalScreen(
+                            token: widget.token,
+                            idProfesional: widget.profesional.id,
+                            nombreProfesional: profesional.nombre,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             // --- CTA contratar ---
             Container(
               width: double.infinity,
@@ -696,6 +746,41 @@ class _PerfilProfesionalScreenState extends State<PerfilProfesionalScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _VerificacionBadge extends StatelessWidget {
+  final int nivel;
+
+  const _VerificacionBadge({required this.nivel});
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icon;
+    final Color color;
+    final String tooltip;
+
+    switch (nivel) {
+      case 1:
+        icon = Icons.phone_android_rounded;
+        color = const Color(0xFF3B82F6);
+        tooltip = 'Teléfono verificado';
+      case 2:
+        icon = Icons.verified_user_rounded;
+        color = const Color(0xFF10B981);
+        tooltip = 'Identidad verificada';
+      case 3:
+        icon = Icons.workspace_premium_rounded;
+        color = const Color(0xFFF59E0B);
+        tooltip = 'Profesional verificado';
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Tooltip(
+      message: tooltip,
+      child: Icon(icon, color: color, size: 20),
     );
   }
 }
@@ -908,6 +993,69 @@ class _ResenaItem extends StatelessWidget {
                   fontSize: 12, color: textSecondary, height: 1.4)),
         ],
       ],
+    );
+  }
+}
+
+class _AccesoRapidoCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _AccesoRapidoCard({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.07),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isDark ? 0.18 : 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

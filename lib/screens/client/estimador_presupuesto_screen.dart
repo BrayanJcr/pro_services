@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pro_services/main.dart';
+import 'package:pro_services/models/estadistica_precio.dart';
 import 'package:pro_services/models/tipo_profesion.dart';
+import 'package:pro_services/services/estadisticas_service.dart';
 import 'package:pro_services/services/tipo_profesion_service.dart';
 
 class EstimadorPresupuestoScreen extends StatefulWidget {
@@ -23,6 +25,9 @@ class _EstimadorPresupuestoScreenState
   final TextEditingController _trasladoCtrl = TextEditingController();
 
   TipoProfesion? _selectedTipo;
+
+  EstadisticaPrecio? _estadistica;
+  bool _cargandoEstadistica = false;
 
   double _horas = 0;
   double _precioHora = 0;
@@ -47,6 +52,26 @@ class _EstimadorPresupuestoScreenState
   double get _total => (_horas * _precioHora) + _materiales + _traslado;
   double get _manoObra => _horas * _precioHora;
 
+  Future<void> _cargarEstadistica(int tipoProfesionId) async {
+    setState(() {
+      _cargandoEstadistica = true;
+      _estadistica = null;
+    });
+    try {
+      final result = await EstadisticasService.getPrecioPromedio(
+        widget.token,
+        tipoProfesionId: tipoProfesionId,
+      );
+      if (!mounted) return;
+      setState(() => _estadistica = result);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _estadistica = null);
+    } finally {
+      if (mounted) setState(() => _cargandoEstadistica = false);
+    }
+  }
+
   void _resetear() {
     setState(() {
       _horasCtrl.clear();
@@ -58,6 +83,8 @@ class _EstimadorPresupuestoScreenState
       _materiales = 0;
       _traslado = 0;
       _selectedTipo = null;
+      _estadistica = null;
+      _cargandoEstadistica = false;
     });
   }
 
@@ -158,14 +185,16 @@ class _EstimadorPresupuestoScreenState
                                               color: textPrimary)),
                                     ))
                                 .toList(),
-                            onChanged: (val) =>
-                                setState(() => _selectedTipo = val),
+                            onChanged: (val) {
+                              setState(() => _selectedTipo = val);
+                              if (val != null) _cargarEstadistica(val.id);
+                            },
                           ),
                         ),
                       );
                     },
                   ),
-                  // Reference range
+                  // Reference range (catalog)
                   if (_selectedTipo != null &&
                       (_selectedTipo!.presupuestoMinimo != null ||
                           _selectedTipo!.presupuestoMaximo != null)) ...[
@@ -199,6 +228,17 @@ class _EstimadorPresupuestoScreenState
                           ),
                         ],
                       ),
+                    ),
+                  ],
+                  // Referencia de mercado histórica
+                  if (_selectedTipo != null) ...[
+                    const SizedBox(height: 10),
+                    _MercadoWidget(
+                      estadistica: _estadistica,
+                      cargando: _cargandoEstadistica,
+                      isDark: isDark,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
                     ),
                   ],
                 ],
@@ -625,6 +665,100 @@ class _RangeComparison extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MercadoWidget extends StatelessWidget {
+  const _MercadoWidget({
+    required this.estadistica,
+    required this.cargando,
+    required this.isDark,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  final EstadisticaPrecio? estadistica;
+  final bool cargando;
+  final bool isDark;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cargando) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF6366F1).withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: const Color(0xFF6366F1).withValues(alpha: 0.25)),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF6366F1),
+              ),
+            ),
+            SizedBox(width: 10),
+            Text(
+              'Cargando referencia de mercado…',
+              style: TextStyle(fontSize: 12, color: Color(0xFF6366F1)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (estadistica == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.insights_rounded,
+                  size: 16, color: Color(0xFF6366F1)),
+              const SizedBox(width: 6),
+              const Text(
+                'Referencia de mercado',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF6366F1),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'S/ ${estadistica!.min.toStringAsFixed(0)} – S/ ${estadistica!.max.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: textPrimary,
+            ),
+          ),
+          Text(
+            'Promedio: S/ ${estadistica!.promedio.toStringAsFixed(0)} • ${estadistica!.cantidadMuestras} cotizaciones',
+            style: TextStyle(fontSize: 11, color: textSecondary),
+          ),
+        ],
+      ),
     );
   }
 }

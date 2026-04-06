@@ -556,6 +556,19 @@ class _ProfesionalCard extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: textPrimary)),
+            if (profesional.distanciaKm != null) ...[
+              const SizedBox(width: 12),
+              const Icon(Icons.location_on_rounded,
+                  size: 12, color: Color(0xFF6366F1)),
+              const SizedBox(width: 2),
+              Text(
+                '${profesional.distanciaKm!.toStringAsFixed(1)} km',
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF6366F1),
+                    fontWeight: FontWeight.w500),
+              ),
+            ],
           ]),
           const SizedBox(height: 4),
           Row(children: [

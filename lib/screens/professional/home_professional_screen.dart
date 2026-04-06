@@ -9,6 +9,7 @@ import 'package:pro_services/screens/professional/editar_perfil_screen.dart';
 import 'package:pro_services/screens/professional/enviar_cotizacion_screen.dart';
 import 'package:pro_services/screens/professional/horarios_screen.dart';
 import 'package:pro_services/screens/professional/solicitudes_entrantes_screen.dart';
+import 'package:pro_services/screens/professional/solicitudes_disponibles_screen.dart';
 import 'package:pro_services/services/ingreso_service.dart';
 import 'package:pro_services/services/perfil_profesional_service.dart';
 import 'package:pro_services/models/resena.dart';
@@ -390,6 +391,27 @@ class _HomeProfessionalScreenState extends State<HomeProfessionalScreen> {
                                   onTap: () => Navigator.push(
                                     context,
                                     MaterialPageRoute(builder: (_) => MisCobrosScreen(token: widget.token)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          // ── Solicitudes disponibles ─────────────────────
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _QuickNavButton(
+                                  icon: Icons.campaign_rounded,
+                                  label: 'Solicitudes disponibles',
+                                  isDark: isDark,
+                                  cardBg: cardBg,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SolicitudesDisponiblesScreen(
+                                          token: widget.token),
+                                    ),
                                   ),
                                 ),
                               ),

@@ -11,6 +11,10 @@ import 'package:pro_services/screens/client/conversaciones_screen.dart';
 import 'package:pro_services/screens/client/favoritos_screen.dart';
 import 'package:pro_services/screens/client/estimador_presupuesto_screen.dart';
 import 'package:pro_services/screens/client/historial_pagos_screen.dart';
+import 'package:pro_services/screens/client/crear_solicitud_abierta_screen.dart';
+import 'package:pro_services/screens/client/mis_solicitudes_abiertas_screen.dart';
+import 'package:pro_services/screens/client/busqueda_screen.dart';
+import 'package:pro_services/screens/client/mis_servicios_recurrentes_screen.dart';
 
 // Mapeo de clave de icono (viene del API) → IconData
 IconData _resolveIcon(String key) {
@@ -93,6 +97,20 @@ class _HomeClientScreenState extends State<HomeClientScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.search_rounded,
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+            tooltip: 'Buscar profesionales',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BusquedaScreen(
+                  token: widget.token,
+                  nombre: widget.nombre,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.chat_bubble_rounded,
                 color: isDark ? Colors.grey.shade400 : Colors.grey.shade600),
@@ -243,42 +261,84 @@ class _HomeClientScreenState extends State<HomeClientScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _QuickActionButton(
-                  icon: Icons.favorite_rounded,
-                  label: 'Favoritos',
-                  isDark: isDark,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => FavoritosScreen(token: widget.token)),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _QuickActionButton(
+                    icon: Icons.favorite_rounded,
+                    label: 'Favoritos',
+                    isDark: isDark,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => FavoritosScreen(token: widget.token)),
+                    ),
                   ),
-                ),
-                _QuickActionButton(
-                  icon: Icons.calculate_rounded,
-                  label: 'Estimador',
-                  isDark: isDark,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            EstimadorPresupuestoScreen(token: widget.token)),
+                  const SizedBox(width: 8),
+                  _QuickActionButton(
+                    icon: Icons.calculate_rounded,
+                    label: 'Estimador',
+                    isDark: isDark,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              EstimadorPresupuestoScreen(token: widget.token)),
+                    ),
                   ),
-                ),
-                _QuickActionButton(
-                  icon: Icons.receipt_long_rounded,
-                  label: 'Historial',
-                  isDark: isDark,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            HistorialPagosScreen(token: widget.token)),
+                  const SizedBox(width: 8),
+                  _QuickActionButton(
+                    icon: Icons.receipt_long_rounded,
+                    label: 'Historial',
+                    isDark: isDark,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              HistorialPagosScreen(token: widget.token)),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  _QuickActionButton(
+                    icon: Icons.campaign_rounded,
+                    label: 'Publicar',
+                    isDark: isDark,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              CrearSolicitudAbiertaScreen(token: widget.token)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _QuickActionButton(
+                    icon: Icons.broadcast_on_personal_rounded,
+                    label: 'Mis posts',
+                    isDark: isDark,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              MisSolicitudesAbiertasScreen(token: widget.token)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _QuickActionButton(
+                    icon: Icons.repeat_rounded,
+                    label: 'Recurrentes',
+                    isDark: isDark,
+                    color: const Color(0xFF0EA5E9),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              MisServiciosRecurrentesScreen(token: widget.token)),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
             FutureBuilder<List<TipoProfesion>>(
@@ -352,18 +412,22 @@ class _QuickActionButton extends StatelessWidget {
   final String label;
   final bool isDark;
   final VoidCallback onTap;
+  final Color? color;
 
   const _QuickActionButton({
     required this.icon,
     required this.label,
     required this.isDark,
     required this.onTap,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     final cardColor = isDark ? const Color(0xFF1E293B) : Colors.white;
     final textColor = isDark ? Colors.grey.shade300 : const Color(0xFF374151);
+    final iconColor = color ??
+        (isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB));
 
     return GestureDetector(
       onTap: onTap,
@@ -384,9 +448,7 @@ class _QuickActionButton extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 28,
-                color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB)),
+            Icon(icon, size: 28, color: iconColor),
             const SizedBox(height: 6),
             Text(
               label,

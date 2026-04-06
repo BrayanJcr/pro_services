@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pro_services/main.dart';
-import 'package:pro_services/models/venta.dart';
-import 'package:pro_services/services/venta_service.dart';
+import 'package:pro_services/models/pago.dart';
+import 'package:pro_services/services/pago_service.dart';
 
 class HistorialPagosScreen extends StatefulWidget {
   const HistorialPagosScreen({super.key, required this.token});
@@ -12,17 +12,17 @@ class HistorialPagosScreen extends StatefulWidget {
 }
 
 class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
-  late Future<List<Venta>> _futuro;
+  late Future<List<Pago>> _futuro;
 
   @override
   void initState() {
     super.initState();
-    _futuro = VentaService.getMisVentas(widget.token);
+    _futuro = PagoService.getMisPagos(widget.token);
   }
 
   void _reload() {
     setState(() {
-      _futuro = VentaService.getMisVentas(widget.token);
+      _futuro = PagoService.getMisPagos(widget.token);
     });
   }
 
@@ -51,7 +51,7 @@ class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Venta>>(
+      body: FutureBuilder<List<Pago>>(
         future: _futuro,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -61,11 +61,11 @@ class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
             return _ErrorView(onRetry: _reload);
           }
 
-          final ventas = List<Venta>.from(snapshot.data ?? []);
-          // Sort: most recent first (reverse chronological by fecha field)
-          ventas.sort((a, b) => b.id.compareTo(a.id));
+          final pagos = List<Pago>.from(snapshot.data ?? []);
+          // Sort: most recent first
+          pagos.sort((a, b) => b.id.compareTo(a.id));
 
-          if (ventas.isEmpty) {
+          if (pagos.isEmpty) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -93,7 +93,7 @@ class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
           }
 
           final totalPagado =
-              ventas.fold<double>(0, (acc, v) => acc + v.montoTotal);
+              pagos.fold<double>(0, (acc, p) => acc + p.monto);
 
           return Column(
             children: [
@@ -171,7 +171,7 @@ class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '${ventas.length}',
+                            '${pagos.length}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -195,12 +195,11 @@ class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                  itemCount: ventas.length,
+                  itemCount: pagos.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final venta = ventas[index];
-                    return _VentaCard(
-                      venta: venta,
+                    return _PagoCard(
+                      pago: pagos[index],
                       isDark: isDark,
                       cardColor: cardColor,
                     );
@@ -215,21 +214,55 @@ class _HistorialPagosScreenState extends State<HistorialPagosScreen> {
   }
 }
 
-class _VentaCard extends StatelessWidget {
-  const _VentaCard({
-    required this.venta,
+// ── Colores y labels de estado ─────────────────────────────────────────────────
+
+Color _estadoBadgeColor(String estado) {
+  switch (estado.toLowerCase()) {
+    case 'capturado':
+      return const Color(0xFF3B82F6);
+    case 'liberado':
+      return const Color(0xFF10B981);
+    case 'reembolsado':
+      return const Color(0xFFF97316);
+    case 'pendiente':
+    default:
+      return const Color(0xFFF59E0B);
+  }
+}
+
+String _estadoLabel(String estado) {
+  switch (estado.toLowerCase()) {
+    case 'capturado':
+      return 'Capturado';
+    case 'liberado':
+      return 'Liberado';
+    case 'reembolsado':
+      return 'Reembolsado';
+    case 'pendiente':
+    default:
+      return 'Pendiente';
+  }
+}
+
+// ── PagoCard ───────────────────────────────────────────────────────────────────
+
+class _PagoCard extends StatelessWidget {
+  const _PagoCard({
+    required this.pago,
     required this.isDark,
     required this.cardColor,
   });
 
-  final Venta venta;
+  final Pago pago;
   final bool isDark;
   final Color cardColor;
 
   @override
   Widget build(BuildContext context) {
-    final fechaMostrar =
-        venta.fechaPago?.isNotEmpty == true ? venta.fechaPago! : venta.fecha;
+    final estadoColor = _estadoBadgeColor(pago.estadoPago);
+    final fechaMostrar = pago.fechaCaptura?.isNotEmpty == true
+        ? pago.fechaCaptura!
+        : pago.fecha;
 
     return Container(
       decoration: BoxDecoration(
@@ -244,19 +277,18 @@ class _VentaCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
+                color: estadoColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
-                Icons.check_circle_rounded,
-                color: Colors.green.shade500,
+                Icons.payment_rounded,
+                color: estadoColor,
                 size: 22,
               ),
             ),
@@ -265,15 +297,24 @@ class _VentaCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Servicio',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  // Estado badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: estadoColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _estadoLabel(pago.estadoPago),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: estadoColor,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       Icon(
@@ -295,11 +336,13 @@ class _VentaCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  _MetodoPagoChip(
-                    metodo: venta.metodoPago,
-                    isDark: isDark,
-                  ),
+                  if (pago.metodoPago?.isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    _MetodoPagoChip(
+                      metodo: pago.metodoPago!,
+                      isDark: isDark,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -307,7 +350,7 @@ class _VentaCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'S/ ${venta.montoTotal.toStringAsFixed(2)}',
+                  'S/ ${pago.monto.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -316,7 +359,7 @@ class _VentaCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '#${venta.id}',
+                  '#${pago.id}',
                   style: TextStyle(
                     fontSize: 11,
                     color: isDark

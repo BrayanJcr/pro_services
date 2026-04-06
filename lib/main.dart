@@ -1,10 +1,37 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pro_services/screens/auth/login_screen.dart';
 import 'package:pro_services/screens/auth/onboarding_screen.dart';
+import 'package:pro_services/services/error_log_service.dart';
 
 void main() {
-  runApp(const MyApp());
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    // Capturar errores de Flutter (widgets, rendering, etc.)
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details); // muestra en consola
+      ErrorLogService.registrar(
+        error: details.exceptionAsString(),
+        stackTrace: details.stack?.toString(),
+        screen: details.library ?? 'unknown',
+        action: 'FlutterError',
+        level: 'Error',
+      );
+    };
+
+    runApp(const MyApp());
+  }, (error, stack) {
+    // Capturar errores de Dart no manejados (async, zones)
+    ErrorLogService.registrar(
+      error: error.toString(),
+      stackTrace: stack.toString(),
+      screen: 'ZoneError',
+      action: 'UnhandledException',
+      level: 'Fatal',
+    );
+  });
 }
 
 class MyApp extends StatefulWidget {

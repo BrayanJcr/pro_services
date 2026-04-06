@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:pro_services/main.dart';
 import 'package:pro_services/screens/client/chat_proyecto_screen.dart';
 import 'package:pro_services/screens/professional/crear_resena_cliente_screen.dart';
+import 'package:pro_services/screens/professional/fotos_proyecto_screen.dart';
+import 'package:pro_services/screens/professional/marcar_hito_screen.dart';
+import 'package:pro_services/screens/professional/perfil_cliente_screen.dart';
 import 'package:pro_services/services/proyecto_service.dart';
 
 class DetalleProyectoScreen extends StatefulWidget {
@@ -233,11 +236,52 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(widget.cliente,
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: textPrimary)),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    widget.cliente,
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: textPrimary),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                GestureDetector(
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PerfilClienteScreen(
+                                        token: widget.token,
+                                        idCliente: widget.idUsuario,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF6366F1)
+                                          .withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: const Color(0xFF6366F1)
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Ver cliente',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6366F1),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 3),
                             Text(widget.servicio,
                                 style: TextStyle(
@@ -695,7 +739,7 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                     ),
                     const SizedBox(height: 14),
                   ],
-                  // Botón subir foto
+                  // Botón subir foto (mock local)
                   if (!_completado && widget.estado != 'completado')
                     SizedBox(
                       width: double.infinity,
@@ -714,6 +758,36 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                                 fontSize: 13, fontWeight: FontWeight.w600)),
                       ),
                     ),
+                  const SizedBox(height: 10),
+                  // Botón gestionar fotos tipadas (antes / durante / después)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FotosProyectoScreen(
+                              token: widget.token,
+                              proyectoId: widget.id,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.photo_library_rounded, size: 16),
+                      label: const Text('Gestionar fotos del proyecto',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
                   if (_completado) ...[
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -873,6 +947,34 @@ class _DetalleProyectoScreenState extends State<DetalleProyectoScreen> {
                   },
                   icon: const Icon(Icons.task_alt_rounded, size: 18),
                   label: const Text('Marcar como completado',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MarcarHitoScreen(
+                        token:          widget.token,
+                        proyectoId:     widget.id,
+                        usuarioEmail:   'profesional',
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.gps_fixed_rounded, size: 18),
+                  label: const Text('Actualizar estado',
                       style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600)),
                 ),

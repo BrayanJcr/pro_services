@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pro_services/main.dart';
-import 'package:pro_services/models/venta.dart';
-import 'package:pro_services/services/venta_service.dart';
+import 'package:pro_services/models/pago.dart';
+import 'package:pro_services/services/pago_service.dart';
 
 class MisCobrosScreen extends StatefulWidget {
   const MisCobrosScreen({super.key, required this.token});
@@ -12,17 +12,17 @@ class MisCobrosScreen extends StatefulWidget {
 }
 
 class _MisCobrosScreenState extends State<MisCobrosScreen> {
-  late Future<List<Venta>> _futuro;
+  late Future<List<Pago>> _futuro;
 
   @override
   void initState() {
     super.initState();
-    _futuro = VentaService.getMisCobros(widget.token);
+    _futuro = PagoService.getMisCobros(widget.token);
   }
 
   void _reload() {
     setState(() {
-      _futuro = VentaService.getMisCobros(widget.token);
+      _futuro = PagoService.getMisCobros(widget.token);
     });
   }
 
@@ -47,7 +47,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Venta>>(
+      body: FutureBuilder<List<Pago>>(
         future: _futuro,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -59,9 +59,9 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
               onRetry: _reload,
             );
           }
-          final ventas = snapshot.data ?? [];
+          final cobros = snapshot.data ?? [];
 
-          if (ventas.isEmpty) {
+          if (cobros.isEmpty) {
             return const Center(
               child: Text(
                 'Aún no tenés cobros registrados',
@@ -70,8 +70,10 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
             );
           }
 
-          final totalCobrado =
-              ventas.fold<double>(0, (sum, v) => sum + v.montoTotal);
+          // Solo mostramos el monto de cobros liberados como "cobrado efectivo"
+          final totalCobrado = cobros
+              .where((p) => p.estadoPago == 'liberado')
+              .fold<double>(0, (sum, p) => sum + p.monto);
 
           return Column(
             children: [
@@ -102,7 +104,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${ventas.length} cobro${ventas.length == 1 ? '' : 's'} registrado${ventas.length == 1 ? '' : 's'}',
+                      '${cobros.length} cobro${cobros.length == 1 ? '' : 's'} registrado${cobros.length == 1 ? '' : 's'}',
                       style: const TextStyle(
                           fontSize: 12, color: Colors.grey),
                     ),
@@ -113,16 +115,29 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: ventas.length,
+                  itemCount: cobros.length,
                   separatorBuilder: (_, __) =>
                       const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final v = ventas[index];
+                    final p = cobros[index];
+                    final esLiberado = p.estadoPago == 'liberado';
+                    final estadoColor = esLiberado
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF59E0B);
+
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: cardColor,
                         borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                                alpha: isDark ? 0.2 : 0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -131,15 +146,18 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  'Cobro #${v.id}',
-                                  style: const TextStyle(
+                                  'Cobro #${p.id}',
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
                                   ),
                                 ),
                               ),
                               Text(
-                                'S/ ${v.montoTotal.toStringAsFixed(2)}',
+                                'S/ ${p.monto.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Colors.green,
                                   fontWeight: FontWeight.bold,
@@ -149,47 +167,56 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                             ],
                           ),
                           const SizedBox(height: 8),
+                          // Estado badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: estadoColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              esLiberado ? 'Liberado' : 'En espera',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: estadoColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           Row(
                             children: [
                               const Icon(Icons.calendar_today_rounded,
                                   size: 13, color: Colors.grey),
                               const SizedBox(width: 4),
                               Text(
-                                v.fecha,
+                                esLiberado && p.fechaLiberacion != null
+                                    ? 'Liberado el ${p.fechaLiberacion}'
+                                    : p.fecha.isNotEmpty
+                                        ? p.fecha
+                                        : '—',
                                 style: const TextStyle(
                                     fontSize: 12, color: Colors.grey),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              if (v.metodoPago.isNotEmpty) ...[
-                                Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.withOpacity(0.15),
-                                    borderRadius:
-                                        BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    v.metodoPago,
-                                    style: const TextStyle(
-                                        fontSize: 11, color: Colors.grey),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
-                              if (v.codigoOperacion.isNotEmpty)
-                                Text(
-                                  'Ref: ${v.codigoOperacion}',
-                                  style: const TextStyle(
-                                      fontSize: 11, color: Colors.grey),
-                                ),
-                            ],
-                          ),
+                          if (p.metodoPago?.isNotEmpty == true) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                p.metodoPago!,
+                                style: const TextStyle(
+                                    fontSize: 11, color: Colors.grey),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     );
